@@ -2,6 +2,10 @@
 
 . $(dirname "$0")/_git_common.sh --source-only
 
+latestLocalPackageUpdateCommit() {
+	git log -n 1 --oneline -- package-lock.json package.json
+}
+
 # Get current git branch
 gitInitialBranch=$(git rev-parse --abbrev-ref HEAD)
 if [ "$gitInitialBranch" == "" ]
@@ -32,6 +36,8 @@ then
 	fi
 fi
 
+packageUpdateCommitBefore=$(latestLocalPackageUpdateCommit)
+
 # If we aren't already on master then switch
 if [[ "$gitInitialBranch" != "master" ]]
 then
@@ -56,4 +62,8 @@ fi
 
 LogSuccess "Successfully updated branch [$gitInitialBranch]"
 
-RunGitCommandSafely "npm install"
+# Run `npm install` only if there was a package update in the latest pull/merge 
+packageUpdateCommitAfter=$(latestLocalPackageUpdateCommit)
+if [ "$packageUpdateCommitBefore" != "$packageUpdateCommitAfter" ]; then
+	RunGitCommandSafely "npm install"
+fi
