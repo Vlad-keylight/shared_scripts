@@ -5,18 +5,18 @@ expectedEnvFileName=".env";
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 if (( $# < 6 )); then
-  echo "Missing arguments"
-  echo "$0 SSH_TUNNEL_MYSQL_HOST SSH_TUNNEL_REDIRECT_PORT SSH_MYSQL_USER SSH_TARGET ENV_CONFIG_PATH CUSTOMER_NAME" 
-  exit 1
+	echo "Missing arguments"
+	echo "$0 CUSTOMER_NAME ENV_CONFIG_PATH SSH_TARGET SSH_TUNNEL_MYSQL_HOST SSH_TUNNEL_REDIRECT_PORT SSH_MYSQL_USER"
+	exit 1
 fi
 
 # Instructions for SandBox DB access: https://www.notion.so/keylight/Infrastructure-0068f50a574e4b5bbb5f2314ca73e125
-sshTunnelMySqlHost=$1
-sshTunnelRedirectPort=$2
-sshMySqlUser=$3
-sshTarget=$4
-envConfigFilePath=$5
-tenantName=$6
+tenantName=$1
+envConfigFilePath=$2
+sshTarget=$3
+sshTunnelMySqlHost=$4
+sshTunnelRedirectPort=$5
+sshMySqlUser=$6
 
 if [[ "$envConfigFilePath" != */"$expectedEnvFileName"  ]] && [[ "$envConfigFilePath" != "$expectedEnvFileName" ]]; then
 	echo "Invalid config file path [$envConfigFilePath]."
@@ -75,8 +75,13 @@ echo "Importing [$tenantDb] DB from file [$tenantSqlDumpFile]"
 sudo mysql -u root $tenantDb < $tenantSqlDumpFile || exit 1
 tenantUUID=$(sudo mysql -u root $tenantDb -se 'select uuid from tenant limit 1')
 if [ "$tenantUUID" == "" ]; then
-  echo "Tenant UUID not obtained from local DB [$tenantDb]"
-  exit 1
+	echo "Tenant UUID not obtained from local DB [$tenantDb]"
+	exit 1
+fi
+
+tenantCount=$(sudo mysql -u root $tenantDb -se 'select count(*) from tenant')
+if (( $tenantCount != 1 )); then
+	echo "Found $tenantCount tenants, using first UUID [$tenantUUID]"
 fi
 
 envTenantLinesToAdd=( "TENANT_UUID=$tenantUUID" "${envTenantLinesToCheck[@]}" )
