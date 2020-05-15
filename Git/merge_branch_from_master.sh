@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Include common helper functions
 . $(dirname "$0")/_git_common.sh --source-only
 
 latestLocalPackageUpdateCommit() {
@@ -8,7 +9,7 @@ latestLocalPackageUpdateCommit() {
 
 # Get current git branch
 gitInitialBranch=$(git rev-parse --abbrev-ref HEAD)
-if [ "$gitInitialBranch" == "" ]
+if [ -z "$gitInitialBranch" ]
 then
 	LogError "Unable to get the current git branch"
 	exit 1
@@ -25,7 +26,7 @@ else
 fi
 
 # Check whether we have provided a branch name as a script parameter
-if [ "$1" != "" ]
+if [ -n "$1" ]
 then
 	if [ "$1" == "$gitInitialBranch" ]
 	then
