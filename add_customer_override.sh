@@ -16,6 +16,7 @@ addLineToFile() {
 	local key=$1
 	local line=$2
 	local path=$3
+	local startingLine=$4
 	if [ -z "$key" ] || [ -z "$key" ] || [ -z "$key" ]; then
 		echo "Invalid arguments provided for adding a line to file"
 		return 1
@@ -26,11 +27,18 @@ addLineToFile() {
 		return 1
 	fi
 
+	fileName=$(basename $path)
 	if [ -z "$(grep -F "$key" $path)" ]; then
-		echo "Adding \"$key\" to [$path]"
-		echo "$line" >> "$path"
+		echo "Adding entry [$key] to [$fileName]"
+		if [ -n "$startingLine" ]; then
+			# Add to the target line
+			sed -i "$startingLine""i""$line" "$path"
+		else
+			# Add to the EOF
+			echo "$line" >> "$path"
+		fi
 	else
-		echo "\"$key\" already present in [$path]"
+		echo "Entry [$key] already present in [$fileName]"
 	fi
 }
 
@@ -93,7 +101,7 @@ else
 		exportCount=$(egrep -c "^[ \t]*export[ \t]+" $srcPath)
 		# If there is a single base export then process it accordingly
 		if (( "$exportCount" == 1 )); then
-			fullExport=$(sed -rn 's/^[ \t]*export[ \t]+(((class)|(interface))[ \t]+)?([a-zA-Z0-9_-]+).*$/\2 \5/gp' $srcPath)
+			fullExport=$(sed -rn 's/^[ \t]*export[ \t]+(((class)|(interface)|(const)|(enum)|(function))[ \t]+)?([a-zA-Z0-9_-]+).*$/\2 \8/gp' $srcPath)
 			exportType=$(echo "$fullExport" | cut -d' ' -f 1)
 			exportName=$(echo "$fullExport" | cut -d' ' -f 2)
 
@@ -102,36 +110,37 @@ else
 			else
 				echo "Found export [$exportName] of type [$exportType]"
 				libEntry="Lib${exportName^}"
-				exportEntry="export $exportType $exportName extends $libEntry"
-				addLineToFile "$exportEntry" "$exportEntry {}" "$destPath"
 				importEntry="{ $exportName as $libEntry }"
-			fi
+				if [ "$exportType" == "class" ] || [ "$exportType" == "interface" ]; then
+					exportEntry="export $exportType $exportName extends $libEntry"
+					addLineToFile "$exportEntry" "$exportEntry {}" "$destPath"
+					
+					# Check existence of overwritten modules file
+					overwrittenModuleSearchDirectory=$destPath
+					overwrittenModulePath=""
+					while [ -n $overwrittenModuleSearchDirectory ] && [ -z $overwrittenModulePath ]
+					do
+						overwrittenModuleSearchDirectory=$(dirname $overwrittenModuleSearchDirectory)
+						overwrittenModulePath=$(find $overwrittenModuleSearchDirectory -type f -name "overwritten*.ts" | head -1)
+					done
 
-			addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$destPath"
-
-			if [ -n "$exportName" ]; then
-				# Check existence of overwritten modules file
-				overwrittenModuleSearchDirectory=$destPath
-				overwrittenModulePath=""
-				while [ -n $overwrittenModuleSearchDirectory ] && [ -z $overwrittenModulePath ]
-				do
-					overwrittenModuleSearchDirectory=$(dirname $overwrittenModuleSearchDirectory)
-					overwrittenModulePath=$(find $overwrittenModuleSearchDirectory -type f -name "overwritten*.ts" | head -1)
-				done
-
-				# Update overwritten modules file
-				if [ -n "$overwrittenModulePath" ]; then
-					importEntry="{ $exportName }"
-					addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$overwrittenModulePath"
+					# Update overwritten modules file
+					if [ -n "$overwrittenModulePath" ]; then
+						importEntry="{ $exportName }"
+						addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$overwrittenModulePath" 1
+					fi
 				fi
 			fi
+		else
+			echo "Found $exportCount exports in [$srcPath]"
 		fi
+		addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$destPath" 1
 	fi
 fi
 
 # Update TS config file
 suiteImportPath="\"@suite/$importPath\"";
-addLineToFile "$suiteImportPath" "$suiteImportPath: [ \"$importPath\" ]," "$tsConfigPath"
+addLineToFile "$suiteImportPath" "$suiteImportPath: [ \"$importPath\" ]," "$customerFolder/$tsConfigFileName"
 
 # Return to starting folder
 popd > /dev/null
