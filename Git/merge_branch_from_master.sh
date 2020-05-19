@@ -46,13 +46,13 @@ then
 fi
 
 # Update the branch (pull new changes)
-RunGitCommandSafely "git pull" $gitFilesChanged
+RunGitCommandSafely "git pull > /dev/null" $gitFilesChanged
 
 # If we weren't initially on master then switch back and merge
 if [[ "$gitInitialBranch" != "master" ]]
 then
 	RunGitCommandSafely "git checkout $gitInitialBranch" $gitFilesChanged
-	RunGitCommandSafely "git merge master" $gitFilesChanged
+	RunGitCommandSafely "git merge master > /dev/null" $gitFilesChanged
 fi
 
 # Stash pop initial changes
