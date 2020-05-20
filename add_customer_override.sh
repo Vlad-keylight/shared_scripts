@@ -6,30 +6,43 @@ tsConfigFileName="tsconfig.app.json"
 
 pushd $projectsFolder > /dev/null
 
-scriptFailure() {
-	echo $1
+function scriptFailure() {
+	# Print error in red
+	echo -e "\e[31m$1\e[0m"
 	popd > /dev/null
 	exit 1
 }
 
-addLineToFile() {
+function checkSinglePath() {
+	local path=$1
+	local target=$2
+	if [ -z "$path" ]; then
+		scriptFailure "[$target] not found in [$PWD]"
+	fi
+	if (( $(echo "$path" | grep -c '') > 1 )); then
+		scriptFailure "Found multiple entities:\n$path\nMust provide a unique name."
+	fi
+}
+
+function addLineToFile() {
 	local key=$1
 	local line=$2
 	local path=$3
-	local startingLine=$4
-	if [ -z "$key" ] || [ -z "$key" ] || [ -z "$key" ]; then
+	local cxName=$4
+	local startingLine=$5
+	if [ -z "$key" ] || [ -z "$key" ] || [ -z "$key" ] || [ -z "$cxName" ]; then
 		echo "Invalid arguments provided for adding a line to file"
 		return 1
 	fi
 
 	if [ ! -f "$path" ]; then
-		echo "File [$path] not found in [$projectsFolder]"
+		echo "File [$path] not found"
 		return 1
 	fi
 
 	fileName=$(basename $path)
 	if [ -z "$(grep -F "$key" $path)" ]; then
-		echo "Adding entry [$key] to [$fileName]"
+		echo "Adding entry [$key] to [$fileName] for [$cxName]"
 		if [ -n "$startingLine" ]; then
 			# Add to the target line
 			sed -i "$startingLine""i""$line" "$path"
@@ -38,7 +51,7 @@ addLineToFile() {
 			echo "$line" >> "$path"
 		fi
 	else
-		echo "Entry [$key] already present in [$fileName]"
+		echo "Entry [$key] already present in [$fileName] for [$cxName]"
 	fi
 }
 
@@ -50,35 +63,27 @@ if [ -z "$sourceEntity" ] || [ -z "$customerProjectName" ]; then
 fi
 
 customerFolder=$(find . -type d -name $customerProjectName)
-if [ -z "$customerFolder" ]; then
-	scriptFailure "Customer folder [$customerProjectName] not found in [$projectsFolder]"
-fi
-if (( $(echo $customerFolder | grep -c '') > 1 )); then
-	scriptFailure "Must provide a unique name. Found multiple folders: [$customerFolder]"
-fi
+checkSinglePath "$customerFolder"
+customerName=$(basename "$customerFolder")
 
 pushd $libFolder > /dev/null
 entityPath=$(find . -name $sourceEntity | sed -E 's/^\.\///g')
 popd > /dev/null
-if [ -z "$entityPath" ]; then
-	scriptFailure "Entity [$sourceEntity] not found in [$libFolder]"
-fi
-if (( $(echo $entityPath | grep -c '') > 1 )); then
-	scriptFailure "Must provide a unique name. Found multiple entities: [$entityPath]"
-fi
 
-srcPath=$libFolder/$entityPath
-destPath=$customerFolder/$customerSubFolder/$entityPath
+checkSinglePath "$entityPath"
+entityName=$(basename "$entityPath")
+srcPath="$libFolder/$entityPath"
+destPath="$customerFolder/$customerSubFolder/$entityPath"
 destDirectory=$(dirname "$destPath")
-mkdir -p $destDirectory
+mkdir -p "$destDirectory"
 
 # Copy directory/file from lib to the customer project
 if [ -d "$srcPath" ]; then
 	importPath="$entityPath/*"
     if [ -d "$destPath" ]; then
-        "Directory [$destPath] already exists"
+        "Directory [$entityName] already exists for [$customerName]"
 	else                       
-		echo "Copying directory [$srcPath]"
+		echo "Copying directory [$entityName] for [$customerName]"
 		cp -r $srcPath $destPath
 	fi
 else
@@ -88,9 +93,9 @@ else
 	fi
 
     if [ -s "$destPath" ]; then
-        echo "File [$destPath] already exists"
+        echo "File [$entityName] already exists for [$customerName]"
 	else
-		echo "Copying file [$srcPath]"
+		echo "Copying file [$entityName] for [$customerName]"
 		cp $srcPath $destPath
 	fi
 	
@@ -106,14 +111,14 @@ else
 			exportName=$(echo "$fullExport" | cut -d' ' -f 2)
 
 			if [ -z "$exportName" ] || [ -z "$exportType" ]; then
-				echo "Unable to find appropriate exports in [$srcPath]"
+				echo "Unable to find appropriate export in [$entityName]"
 			else
-				echo "Found export [$exportName] of type [$exportType]"
+				echo "Found export [$exportName] of type [$exportType] in [$entityName]"
 				libEntry="Lib${exportName^}"
 				importEntry="{ $exportName as $libEntry }"
 				if [ "$exportType" == "class" ] || [ "$exportType" == "interface" ]; then
 					exportEntry="export $exportType $exportName extends $libEntry"
-					addLineToFile "$exportEntry" "$exportEntry {}" "$destPath"
+					addLineToFile "$exportEntry" "$exportEntry {}" "$destPath" "$customerName"
 					
 					# Check existence of overwritten modules file
 					overwrittenModuleSearchDirectory=$destPath
@@ -127,20 +132,20 @@ else
 					# Update overwritten modules file
 					if [ -n "$overwrittenModulePath" ]; then
 						importEntry="{ $exportName }"
-						addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$overwrittenModulePath" 1
+						addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$overwrittenModulePath" "$customerName" 1
 					fi
 				fi
 			fi
 		else
-			echo "Found $exportCount exports in [$srcPath]"
+			echo "Found $exportCount exports in [$entityName]"
 		fi
-		addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$destPath" 1
+		addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$destPath" "$customerName" 1
 	fi
 fi
 
 # Update TS config file
 suiteImportPath="\"@suite/$importPath\"";
-addLineToFile "$suiteImportPath" "$suiteImportPath: [ \"$importPath\" ]," "$customerFolder/$tsConfigFileName"
+addLineToFile "$suiteImportPath" "$suiteImportPath: [ \"$importPath\" ]," "$customerFolder/$tsConfigFileName" "$customerName"
 
 # Return to starting folder
 popd > /dev/null
