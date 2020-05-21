@@ -16,6 +16,17 @@ function scriptFailure() {
 	exit 1
 }
 
+function confirmAction() {
+	local questionMessage=$@
+	read -p "$questionMessage (y/N) ? " -n 1 -r
+	if [[ $REPLY =~ ^[Yy]$ ]]; then
+		# Any output will do
+		echo "continue"
+	else
+		echo ""
+	fi
+}
+
 function findEntity() {
 	local target=$1
 	local type=$2
@@ -35,22 +46,33 @@ function findEntity() {
 		searchCommand="$searchCommand -type $type"
 	fi
 	if [[ "$target" == */* ]]; then
-		searchCommand="$searchCommand -ipath"
+		searchCommand="$searchCommand -ipath \"*/$target\""
 	else
-		searchCommand="$searchCommand -iname"
+		searchCommand="$searchCommand -iname \"$target\""
 	fi
-	searchCommand="$searchCommand \"$target\""
 	eval "$searchCommand"
 }
 
+function findEntityRelativePath() {
+	local searchFolder=$1
+	local searchEntity=$2
+	# Force output of a relative path from the search folder
+	pushd "$searchFolder" > /dev/null
+	local entityPath=$(findEntity "$searchEntity" | sed -E 's/^\.\///g')
+	popd > /dev/null
+	echo "$entityPath"
+}
+
 function checkSinglePath() {
-	local path=$1
-	local target=$2
+	local entityDetail=$1
+	local path=$2
+	local target=$3
+	local searchDirectory=$4
 	if [ -z "$path" ]; then
-		scriptFailure "[$target] not found in [$PWD]"
+		scriptFailure "${entityDetail^} [$target] not found in [$searchDirectory]"
 	fi
 	if (( $(echo "$path" | grep -c '') > 1 )); then
-		scriptFailure "Found multiple entities:\n$path\nMust provide a unique name."
+		scriptFailure "Found multiple $entityDetail""s:\n$path\nin [$searchDirectory]\nMust provide a unique name."
 	fi
 }
 
@@ -59,7 +81,8 @@ function addLineToFile() {
 	local line=$2
 	local path=$3
 	local cxName=$4
-	local startingLine=$5
+	local lineStartSearchRegex=$5
+	local defaultStartingLine=$6
 	if [ -z "$key" ] || [ -z "$key" ] || [ -z "$key" ] || [ -z "$cxName" ]; then
 		echo "Invalid arguments provided for adding a line to file"
 		return 1
@@ -70,12 +93,20 @@ function addLineToFile() {
 		return 1
 	fi
 
+	local startingLine=$defaultStartingLine
+	if [ -n "$lineStartSearchRegex" ]; then
+		local grepResultLine=$(egrep "^[ \t]*$lineStartSearchRegex" "$path" -n | tail -1 | egrep "^[0-9]+" -o)
+		if [ -n "$grepResultLine" ]; then
+			startingLine=$grepResultLine
+		fi
+	fi
+
 	fileName=$(basename $path)
 	if [ -z "$(grep -F "$key" $path)" ]; then
-		local message="Adding entry [$key] to [$fileName] for [$cxName]"
+		local message="Adding entry [$key]\n\tto [$fileName]\n\tfor [$cxName]"
 		if [ -n "$startingLine" ] && (( "$startingLine" >= 0 )); then
 			startingLine=$((startingLine+1))
-			echo "$message @ line $startingLine"
+			echo -e "$message @ line $startingLine"
 			# Add to the target line
 			sed -i "$startingLine""i""$line" "$path"
 		else
@@ -84,7 +115,7 @@ function addLineToFile() {
 			echo "$line" >> "$path"
 		fi
 	else
-		echo "Entry [$key] already present in [$fileName] for [$cxName]"
+		echo -e "Entry [$key]\n\talready present in [$fileName]\n\tfor [$cxName]"
 	fi
 }
 
@@ -99,6 +130,24 @@ function findOverwrittenModulePath() {
 	echo "$path"
 }
 
+function copyFileSafely() {
+	local sourceFilePath="$1"
+	local destDirectory="$2"
+	local copyFileName=$(basename "$sourceFilePath")
+	local destFilePath="$destDirectory/$copyFileName"
+
+	if [ -s "$destFilePath" ]; then
+		confirmation=$(confirmAction "Overwrite existing [$copyFileName]")
+		echo ""
+		if [ -z "$confirmation" ]; then
+			return
+		fi
+	fi
+
+	echo "Copying file [$copyFileName]"
+	cp "$sourceFilePath" "$destFilePath"
+}
+
 sourceEntity=$1
 customerProjectName=$2
 
@@ -107,15 +156,12 @@ if [ -z "$sourceEntity" ] || [ -z "$customerProjectName" ]; then
 fi
 
 customerFolder=$(findEntity "$customerProjectName" "d")
-checkSinglePath "$customerFolder"
+checkSinglePath "customer folder" "$customerFolder" "$customerProjectName" "$PWD"
 customerName=$(basename "$customerFolder")
 
 # Force output of a relative path from the lib folder
-pushd $libFolder > /dev/null
-entityPath=$(findEntity "$sourceEntity" | sed -E 's/^\.\///g')
-popd > /dev/null
-
-checkSinglePath "$entityPath"
+entityPath=$(findEntityRelativePath "$libFolder" "$sourceEntity")
+checkSinglePath "entity" "$entityPath" "$sourceEntity" "$libFolder"
 entityName=$(basename "$entityPath")
 srcPath="$libFolder/$entityPath"
 destPath="$customerFolder/$customerSubFolder/$entityPath"
@@ -133,32 +179,36 @@ fi
 # Copy directory/file from lib to the customer project
 if [ -d "$srcPath" ]; then
 	tsConfigImportPath="$entityPath/*"
-    if [ -d "$destPath" ]; then
-        "Directory [$entityName] already exists for [$customerName]"
-	else                       
+	if [ -d "$destPath" ]; then
+		echo "Directory [$entityName] already exists for [$customerName]"
+		export -f confirmAction
+		export -f copyFileSafely
+		echo ""
+		find "$srcPath" -maxdepth 1 -type f -exec bash -c "copyFileSafely \"{}\" \"$destPath\"" \;
+
+		subDirectories=$(find "$srcPath" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sed 's/^/ - /g')
+		if [ -n "$subDirectories" ]; then
+			echo -e "Skipping additional subdirectories\n$subDirectories"
+		fi
+	else
 		echo "Copying directory [$entityName] for [$customerName]"
-		cp -r $srcPath $destPath
+		cp -r "$srcPath" "$destPath"
 	fi
 else
 	# Remove the file extension e.g. "my.component.ts" -> "my.component"
 	fileImportPath="${entityPath%.*}"
 	tsConfigImportPath="$fileImportPath"
 
-    if [ ! -f "$srcPath" ]; then
-        scriptFailure "Path [$srcPath] is not valid"
+	if [ ! -f "$srcPath" ]; then
+		scriptFailure "Path [$srcPath] is not valid"
 	fi
 
-    if [ -s "$destPath" ]; then
-        echo "File [$entityName] already exists for [$customerName]"
-	else
-		echo "Copying file [$entityName] for [$customerName]"
-		cp $srcPath $destPath
-	fi
+	copyFileSafely "$srcPath" $(dirname "$destPath");
 
 	# Import base exports from .ts files only
 	if [[ "$srcPath" == *.ts ]]; then
 		suiteOrigImportPath="\"@suite-orig/$fileImportPath\""
-		importEntry="* as Lib"
+		destImportEntry="* as Lib"
 		exportCount=$(egrep -c "^[ \t]*export[ \t]+" $srcPath)
 		# If there is a single base export then process it accordingly
 		if (( "$exportCount" == 1 )); then
@@ -171,25 +221,33 @@ else
 			else
 				echo "Found export [$exportName] of type [$exportType] in [$entityName]"
 				libEntry="Lib${exportName^}"
-				importEntry="{ $exportName as $libEntry }"
+				destImportEntry="{ $exportName as $libEntry }"
 				if [ "$exportType" == "class" ] || [ "$exportType" == "interface" ]; then
 					exportEntry="export $exportType $exportName extends $libEntry"
-					addLineToFile "$exportEntry" "$exportEntry {}" "$destPath" "$customerName"
+					# Add line after the matched line or to the end of file
+					addLineToFile "$exportEntry" "$exportEntry {" "$destPath" "$customerName" "export\s"
 
 					# Update overwritten modules file
 					if [ -n "$overwrittenModulePath" ]; then
-						importEntry="{ $exportName }"
-						# Add line to the start of file
-						addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" \
-							"$overwrittenModulePath" "$customerName" 0
+						# Add line after the matched line or to the end of file
+						addLineToFile "$exportName" "$exportName," \
+							"$overwrittenModulePath" "$customerName" \
+							"declarations:"
+						omImportEntry="{ $exportName }"
+						# Add line after the matched line or to the start of file
+						addLineToFile "$omImportEntry" "import $omImportEntry from $suiteOrigImportPath" \
+							"$overwrittenModulePath" "$customerName" \
+							"import\s" 0
 					fi
 				fi
 			fi
 		else
 			echo "Found $exportCount exports in [$entityName]"
 		fi
-		# Add line to the start of file
-		addLineToFile "$importEntry" "import $importEntry from $suiteOrigImportPath" "$destPath" "$customerName" 0
+		# Add line after the matched line or to the start of file
+		addLineToFile "$destImportEntry" "import $destImportEntry from $suiteOrigImportPath" \
+			"$destPath" "$customerName" \
+			"import\s.*(\"@suite-orig/)?" 0
 	fi
 fi
 
@@ -199,7 +257,26 @@ tsConfigFilePath="$customerFolder/$tsConfigFileName";
 # Add line to the last @suite path or at the end of file
 addLineToFile "$suiteImportPath" "$suiteImportPath: [ \"$tsConfigImportPath\" ]," \
 	"$tsConfigFilePath" "$customerName" \
-	$(egrep "^[ \t]*\"@suite/" "$tsConfigFilePath" -n | tail -1 | egrep "^[0-9]+" -o)
+	"\"@suite/"
+
+if [ -d "$srcPath" ]; then
+	echo ""
+	tsFilePattern="$entityName.*.ts"
+	relatedTsFile=$(findEntityRelativePath "$srcPath" "$tsFilePattern" | egrep -v "spec.ts$")
+	if [ -n "$relatedTsFile" ]; then
+		# Prefix with directory path
+		relatedTsFile="$entityPath/$relatedTsFile"
+		checkSinglePath "related .ts file" "$relatedTsFile" "$tsFilePattern" "$srcPath"
+
+		confirmation=$(confirmAction Update related .ts file [$(basename "$relatedTsFile")])
+		echo ""
+		if [ -n "$confirmation" ]; then
+			$0 "$relatedTsFile" "$customerProjectName"
+		fi
+	else
+		echo "Related .ts file not found for [$entityName]"
+	fi
+fi
 
 # Return to starting folder
 popd > /dev/null
