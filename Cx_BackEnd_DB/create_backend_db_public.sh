@@ -4,15 +4,33 @@ expectedEnvFileName=".env";
 sedKeyWordRegEx='\(\(TENANT_UUID\)\|\(TENANT\)\|\(MYSQL_NAME\)\)=';
 grepKeyWordRegEx='((TENANT_UUID)|(TENANT)|(MYSQL_NAME))=';
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+currentScriptFolderName=$(dirname "$0")
+currentScriptFileName=$(basename "$0")
+# Include common helper functions
+. "$currentScriptFolderName/../_common.sh" --source-only
 
 if (( $# < 1 )); then
-	echo "Missing arguments"
-	echo "$0 \$1:CUSTOMER_NAME [\$2:ENV_CONFIG_PATH=$expectedEnvFileName] [\$3:SSH_TARGET \$4:SSH_TUNNEL_MYSQL_HOST \$5:SSH_TUNNEL_REDIRECT_PORT \$6:SSH_MYSQL_USER]"
-	exit 1
+	ScriptFailure "Missing arguments\n$currentScriptFileName \$1:CUSTOMER_NAME [\$2:ENV_CONFIG_PATH=$expectedEnvFileName] [\$3:SSH_TARGET \$4:SSH_TUNNEL_MYSQL_HOST \$5:SSH_TUNNEL_REDIRECT_PORT \$6:SSH_MYSQL_USER]"
 fi
 
-# Instructions for SandBox DB access: https://www.notion.so/keylight/Infrastructure-0068f50a574e4b5bbb5f2314ca73e125
+function mySqlExecQuery() {
+	if [ -n "$2" ]; then
+		sudo mysql -u root --database="$2" -se "$1"
+	else
+		sudo mysql -u root -se "$1"
+	fi
+}
+function mySqlImportDb() {
+	LogSuccess "Importing [$1] DB from file [$2]"
+	sudo mysql -u root "$1" < "$2" || ScriptFailure "mySQL import DB failed"
+}
+function mySqlRecreateDb() {
+	LogSuccess "Recreating local [$1] DB"
+	mySqlExecQuery "drop database if exists \`$1\`; create database \`$1\`"
+}
+
 tenantName=$1
 envConfigFilePath=$2
 if [ -z "$envConfigFilePath" ]; then
@@ -20,15 +38,11 @@ if [ -z "$envConfigFilePath" ]; then
 fi
 
 if [[ "$envConfigFilePath" != */"$expectedEnvFileName"  ]] && [[ "$envConfigFilePath" != "$expectedEnvFileName" ]]; then
-	echo "Invalid config file path [$envConfigFilePath]."
-	echo "Expected file name [$expectedEnvFileName]"
-	exit 1
+	ScriptFailure "Invalid config file path [$envConfigFilePath].\nExpected file name [$expectedEnvFileName]"
 fi
 
 if ! [ -f "$envConfigFilePath" ]; then
-	echo "Config file not found @ [$envConfigFilePath]"
-	echo "Please provid valid path."
-	exit 1
+	ScriptFailure "Config file not found @ [$envConfigFilePath]\nPlease provid valid path."
 fi
 
 # tenantDb=$(echo $tenantName"_DB" | tr - _)
@@ -36,16 +50,17 @@ tenantDb=$tenantName
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
+LogWarning "How-to for SandBox DB access @ https://www.notion.so/keylight/Infrastructure-0068f50a574e4b5bbb5f2314ca73e125"
 
 if [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ] || [ -z "$6" ]; then
-	echo "No SSH parameters provided. Skipping (re)creation of local DB [$tenantDb]"
+	LogWarning "No SSH parameters provided. Skipping (re)creation of local DB [$tenantDb]"
 else
-	sqlDumpFolder=$(dirname "$0")/Dumps
-	mkdir -p $sqlDumpFolder
-	tenantSqlDumpFile=$sqlDumpFolder/"$tenantDb"_$(date +'%Y-%m-%d').sql
+	sqlDumpFolder="$currentScriptFolderName/Dumps"
+	mkdir -p "$sqlDumpFolder"
+	tenantSqlDumpFile="$sqlDumpFolder/${tenantDb}_$(date +'%Y-%m-%d').sql"
 
 	if [ -f "$tenantSqlDumpFile" ] && [ -s "$tenantSqlDumpFile" ]; then
-		echo "Cx DB [$tenantDb] already exported @ [$tenantSqlDumpFile]"
+		LogWarning "Cx DB [$tenantDb] already exported @ [$tenantSqlDumpFile]"
 	else
 		sshTarget=$3
 		sshTunnelMySqlHost=$4
@@ -53,14 +68,15 @@ else
 		sshMySqlUser=$6
 		
 		# Setup SSH tunnel for querying SandBox DB
-		# For it to work you have to add your private SSH key @ https://github.com/keylightberlin/key-people
-		echo "Setting up SSH tunnel for SandBox DB access (exit the new terminal afterwards)"	
+		LogSuccess "Setting up SSH tunnel for SandBox DB access (exit the new terminal afterwards) via local private key"
+		LogWarning "Make sure to have your public key @ https://github.com/keylightberlin/key-people"
 		gnome-terminal -- ssh -L $sshTunnelRedirectPort:$sshTunnelMySqlHost $sshTarget &
 		# Export (dump) the requested Cx DB
-		echo "Exporting SandBox DB [$tenantDb] to file [$tenantSqlDumpFile]..."	
+		LogSuccess "Exporting SandBox DB [$tenantDb]\n\tto file [$tenantSqlDumpFile]..."
+		LogWarning "MySQL user (over SSH): [$sshMySqlUser]"
 		mysqldump $tenantDb -u $sshMySqlUser -p -h 127.0.0.1 -P $sshTunnelRedirectPort > $tenantSqlDumpFile || exit 1
 
-		echo "Killing SSH tunnel process"
+		LogWarning "Killing SSH tunnel process"
 		pkill -f "ssh.*$sshTunnelMySqlHost"
 	fi
 
@@ -68,21 +84,19 @@ else
 	# sql_pass=$(grep -oP "(?<=MYSQL_PASS=).*" $envConfigFilePath)
 
 	# (Re)creating tenant DB via MySQL commands
-	sudo mysql -u root -e "drop database if exists \`$tenantDb\`; create database \`$tenantDb\`" || exit 1
+	mySqlRecreateDb "$tenantDb"
 	# Import the Cx DB locally
-	echo "Importing [$tenantDb] DB from file [$tenantSqlDumpFile]"
-	sudo mysql -u root $tenantDb < $tenantSqlDumpFile || exit 1
+	mySqlImportDb "$tenantDb" "$tenantSqlDumpFile"
 fi
 
-tenantUUID=$(sudo mysql -u root $tenantDb -se 'select uuid from tenant limit 1')
+tenantUUID=$(mySqlExecQuery 'select uuid from tenant limit 1' "$tenantDb")
 if [ -z "$tenantUUID" ]; then
-	echo "Tenant UUID not obtained from local DB [$tenantDb]"
-	exit 1
+	ScriptFailure "Tenant UUID not obtained from local DB [$tenantDb]"
 fi
 
-tenantCount=$(sudo mysql -u root $tenantDb -se 'select count(*) from tenant')
+tenantCount=$(mySqlExecQuery "select count(*) from tenant" "$tenantDb")
 if (( $tenantCount != 1 )); then
-	echo "Found $tenantCount tenants, using first UUID [$tenantUUID]"
+	LogWarning "Found $tenantCount tenants, using first UUID [$tenantUUID]"
 fi
 
 envTenantLinesToAdd=( "TENANT_UUID=$tenantUUID" "TENANT=$tenantName" "MYSQL_NAME=$tenantDb" )
@@ -97,10 +111,10 @@ fi
 # Remove existing tenant settings, create a .bak backup file.
 sed -i.bak '/^[# \t]*'$sedKeyWordRegEx'/d' "$envConfigFilePath"
 
-echo "Adding [$tenantName] configuration @ line #$starting_line of [$envConfigFilePath]:"
+LogSuccess "Adding [$tenantName] configuration @ line #$starting_line of [$envConfigFilePath]:"
 # Input new tenant settings at the given position
 for l in "${envTenantLinesToAdd[@]}"; do
-	echo "    [$l]"
+	LogSuccess "\t[$l]"
 	envInput=$starting_line"i"$l
 	sed -i "$envInput" "$envConfigFilePath"
 done
