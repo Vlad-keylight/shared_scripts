@@ -7,24 +7,14 @@ tsConfigFileName="tsconfig.app.json"
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
+# Include common helper functions
+. $(dirname "$0")/_common.sh --source-only
+
 pushd $projectsFolder > /dev/null
 
 function scriptFailure() {
-	# Print error in red
-	echo -e "\e[31m$1\e[0m"
 	popd > /dev/null
-	exit 1
-}
-
-function confirmAction() {
-	local questionMessage=$@
-	read -p "$questionMessage (y/N) ? " -n 1 -r
-	if [[ $REPLY =~ ^[Yy]$ ]]; then
-		# Any output will do
-		echo "continue"
-	else
-		echo ""
-	fi
+	ScriptFailure "$@"
 }
 
 function findEntity() {
@@ -84,12 +74,12 @@ function addLineToFile() {
 	local lineStartSearchRegex=$5
 	local defaultStartingLine=$6
 	if [ -z "$key" ] || [ -z "$key" ] || [ -z "$key" ] || [ -z "$cxName" ]; then
-		echo "Invalid arguments provided for adding a line to file"
+		LogWarning "Invalid arguments provided for adding a line to file"
 		return 1
 	fi
 
 	if [ ! -f "$path" ]; then
-		echo "File [$path] not found"
+		LogWarning "File [$path] not found"
 		return 1
 	fi
 
@@ -106,16 +96,16 @@ function addLineToFile() {
 		local message="Adding entry [$key]\n\tto [$fileName]\n\tfor [$cxName]"
 		if [ -n "$startingLine" ] && (( "$startingLine" >= 0 )); then
 			startingLine=$((startingLine+1))
-			echo -e "$message @ line $startingLine"
+			LogSuccess "$message @ line $startingLine"
 			# Add to the target line
 			sed -i "$startingLine""i""$line" "$path"
 		else
 			# Add to the EOF
-			echo "$message @ EOF"
+			LogSuccess "$message @ EOF"
 			echo "$line" >> "$path"
 		fi
 	else
-		echo -e "Entry [$key]\n\talready present in [$fileName]\n\tfor [$cxName]"
+		LogWarning "Entry [$key]\n\talready present in [$fileName]\n\tfor [$cxName]"
 	fi
 }
 
@@ -128,24 +118,6 @@ function findOverwrittenModulePath() {
 		path=$(findEntity "overwritten*.ts" "f" "$searchDirectory" | head -1)
 	done
 	echo "$path"
-}
-
-function copyFileSafely() {
-	local sourceFilePath="$1"
-	local destDirectory="$2"
-	local copyFileName=$(basename "$sourceFilePath")
-	local destFilePath="$destDirectory/$copyFileName"
-
-	if [ -s "$destFilePath" ]; then
-		confirmation=$(confirmAction "Overwrite existing [$copyFileName]")
-		echo ""
-		if [ -z "$confirmation" ]; then
-			return
-		fi
-	fi
-
-	echo "Copying file [$copyFileName]"
-	cp "$sourceFilePath" "$destFilePath"
 }
 
 sourceEntity=$1
@@ -173,25 +145,23 @@ overwrittenModulePath=$(findOverwrittenModulePath "$destPath")
 if [ -n "$overwrittenModulePath" ]; then
 	# Switch to absolute path
 	overwrittenModulePath=$(realpath "$overwrittenModulePath")
-	echo "Overwritten module found @ [$overwrittenModulePath]"
+	LogSuccess "Overwritten module found @ [$overwrittenModulePath]"
 fi
 
 # Copy directory/file from lib to the customer project
 if [ -d "$srcPath" ]; then
 	tsConfigImportPath="$entityPath/*"
 	if [ -d "$destPath" ]; then
-		echo "Directory [$entityName] already exists for [$customerName]"
-		export -f confirmAction
-		export -f copyFileSafely
-		echo ""
-		find "$srcPath" -maxdepth 1 -type f -exec bash -c "copyFileSafely \"{}\" \"$destPath\"" \;
+		LogWarning "Directory [$entityName] already exists for [$customerName]\n"
+		find "$srcPath" -maxdepth 1 -type f -exec bash -c "CopyFileSafely \"{}\" \"$destPath\"" \;
 
 		subDirectories=$(find "$srcPath" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sed 's/^/ - /g')
 		if [ -n "$subDirectories" ]; then
-			echo -e "Skipping additional subdirectories\n$subDirectories"
+			LogWarning "Skipping additional subdirectories\n$subDirectories"
 		fi
+		echo ""
 	else
-		echo "Copying directory [$entityName] for [$customerName]"
+		LogSuccess "Copying directory [$entityName] for [$customerName]"
 		cp -r "$srcPath" "$destPath"
 	fi
 else
@@ -203,7 +173,7 @@ else
 		scriptFailure "Path [$srcPath] is not valid"
 	fi
 
-	copyFileSafely "$srcPath" $(dirname "$destPath");
+	CopyFileSafely "$srcPath" $(dirname "$destPath");
 
 	# Import base exports from .ts files only
 	if [[ "$srcPath" == *.ts ]]; then
@@ -217,9 +187,9 @@ else
 			exportName=$(echo "$fullExport" | cut -d' ' -f 2)
 
 			if [ -z "$exportName" ] || [ -z "$exportType" ]; then
-				echo "Unable to find appropriate export in [$entityName]"
+				LogWarning "Unable to find appropriate export in [$entityName]"
 			else
-				echo "Found export [$exportName] of type [$exportType] in [$entityName]"
+				LogInfo "Found export [$exportName] of type [$exportType] in [$entityName]"
 				libEntry="Lib${exportName^}"
 				destImportEntry="{ $exportName as $libEntry }"
 				if [ "$exportType" == "class" ] || [ "$exportType" == "interface" ]; then
@@ -242,7 +212,7 @@ else
 				fi
 			fi
 		else
-			echo "Found $exportCount exports in [$entityName]"
+			LogInfo "Found $exportCount exports in [$entityName]"
 		fi
 		# Add line after the matched line or to the start of file
 		addLineToFile "$destImportEntry" "import $destImportEntry from $suiteOrigImportPath" \
@@ -266,15 +236,14 @@ if [ -d "$srcPath" ]; then
 	if [ -n "$relatedTsFile" ]; then
 		# Prefix with directory path
 		relatedTsFile="$entityPath/$relatedTsFile"
+		relatedTsFileName=$(basename "$relatedTsFile")
 		checkSinglePath "related .ts file" "$relatedTsFile" "$tsFilePattern" "$srcPath"
 
-		confirmation=$(confirmAction Update related .ts file [$(basename "$relatedTsFile")])
-		echo ""
-		if [ -n "$confirmation" ]; then
+		if [ -n "$(ConfirmAction Update related .ts file [$relatedTsFileName])" ]; then
 			$0 "$relatedTsFile" "$customerProjectName"
 		fi
 	else
-		echo "Related .ts file not found for [$entityName]"
+		LogWarning "Related .ts file not found for [$entityName]"
 	fi
 fi
 

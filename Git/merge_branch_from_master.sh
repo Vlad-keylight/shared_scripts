@@ -11,8 +11,7 @@ latestLocalPackageUpdateCommit() {
 gitInitialBranch=$(git rev-parse --abbrev-ref HEAD)
 if [ -z "$gitInitialBranch" ]
 then
-	LogError "Unable to get the current git branch"
-	exit 1
+	ScriptFailure "Unable to get the current git branch"
 fi
 
 # Stash initial changes to enable pull/merge/checkout

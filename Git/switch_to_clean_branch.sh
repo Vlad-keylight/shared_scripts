@@ -5,8 +5,7 @@
 branchName=$1
 if [ -z "$branchName" ]
 then
-	echo "Branch name is required"
-	exit 1
+	ScriptFailure "Branch name is required"
 fi
 
 # Stash initial changes to enable pull/merge/checkout
