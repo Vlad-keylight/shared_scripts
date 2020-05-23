@@ -22,7 +22,7 @@ function ScriptExit() {
 	fi
 	exit $exitStatus 
 }
-function ScriptFailure() { ScriptFailureStatus 1 "$@"; }
+function ScriptFailure() { ScriptExit 1 "$@"; }
 
 function ConfirmAction() {
 	# if [ -n "$(ConfirmAction Your question here)" ]; then Dangerous action here; fi
@@ -57,7 +57,7 @@ export -f LogSuccess
 export -f LogWarning
 export -f LogCheck
 export -f LogError
-export -f ScriptFailureStatus
+export -f ScriptExit
 export -f ScriptFailure
 export -f ConfirmAction
 export -f CopyFileSafely
