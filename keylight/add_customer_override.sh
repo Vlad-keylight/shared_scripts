@@ -8,7 +8,7 @@ tsConfigFileName="tsconfig.app.json"
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 # Include common helper functions
-. $(dirname "$0")/_common.sh --source-only
+. $(dirname "$0")/../_common.sh --source-only
 
 pushd $projectsFolder > /dev/null
 

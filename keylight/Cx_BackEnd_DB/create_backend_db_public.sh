@@ -4,17 +4,6 @@ expectedEnvFileName=".env";
 sedKeyWordRegEx='\(\(TENANT_UUID\)\|\(TENANT\)\|\(MYSQL_NAME\)\)=';
 grepKeyWordRegEx='((TENANT_UUID)|(TENANT)|(MYSQL_NAME))=';
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-currentScriptFolderName=$(dirname "$0")
-currentScriptFileName=$(basename "$0")
-# Include common helper functions
-. "$currentScriptFolderName/../_common.sh" --source-only
-
-if (( $# < 1 )); then
-	ScriptFailure "Missing arguments\n$currentScriptFileName \$1:CUSTOMER_NAME [\$2:ENV_CONFIG_PATH=$expectedEnvFileName] [\$3:SSH_TARGET \$4:SSH_TUNNEL_MYSQL_HOST \$5:SSH_TUNNEL_REDIRECT_PORT \$6:SSH_MYSQL_USER]"
-fi
-
 function mySqlExecQuery() {
 	if [ -n "$2" ]; then
 		sudo mysql -u root --database="$2" -se "$1"
@@ -30,6 +19,17 @@ function mySqlRecreateDb() {
 	LogSuccess "Recreating local [$1] DB"
 	mySqlExecQuery "drop database if exists \`$1\`; create database \`$1\`"
 }
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+currentScriptFolderName=$(dirname "$0")
+currentScriptFileName=$(basename "$0")
+# Include common helper functions
+. "$currentScriptFolderName/../../_common.sh" --source-only
+
+if (( $# < 1 )); then
+	ScriptFailure "Missing arguments\n$currentScriptFileName \$1:CUSTOMER_NAME [\$2:ENV_CONFIG_PATH=$expectedEnvFileName] [\$3:SSH_TARGET \$4:SSH_TUNNEL_MYSQL_HOST \$5:SSH_TUNNEL_REDIRECT_PORT \$6:SSH_MYSQL_USER]"
+fi
 
 tenantName=$1
 envConfigFilePath=$2
