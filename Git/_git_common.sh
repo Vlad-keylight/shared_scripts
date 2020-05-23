@@ -1,7 +1,9 @@
 #!/bin/bash
 
+currentScriptFolderName=$(dirname "$0")
+currentScriptFileName=$(basename "$0")
 # Include common helper functions
-. $(dirname "$0")/../_common.sh --source-only
+. "$currentScriptFolderName/../_common.sh" --source-only
 
 RunGitCommandSafely() {
 	eval $1

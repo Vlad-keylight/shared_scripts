@@ -1,11 +1,14 @@
 #!/bin/bash
 
-. $(dirname "$0")/_git_common.sh --source-only
+currentScriptFolderName=$(dirname "$0")
+currentScriptFileName=$(basename "$0")
+# Include common helper functions
+. "$currentScriptFolderName/_git_common.sh" --source-only
 
 branchName=$1
 if [ -z "$branchName" ]
 then
-	ScriptFailure "Branch name is required"
+	ScriptFailure "Branch name is required\n$currentScriptFileName \$1:BRANCH_NAME"
 fi
 
 # Stash initial changes to enable pull/merge/checkout

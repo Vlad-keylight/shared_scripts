@@ -1,7 +1,9 @@
 #!/bin/bash
 
+currentScriptFolderName=$(dirname "$0")
+currentScriptFileName=$(basename "$0")
 # Include common helper functions
-. $(dirname "$0")/_git_common.sh --source-only
+. "$currentScriptFolderName/_git_common.sh" --source-only
 
 latestLocalPackageUpdateCommit() {
 	git log -n 1 --oneline -- package-lock.json package.json

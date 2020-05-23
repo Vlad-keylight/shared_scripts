@@ -1,6 +1,9 @@
 #!/bin/bash
 
-. $(dirname "$0")/_git_common.sh --source-only
+currentScriptFolderName=$(dirname "$0")
+currentScriptFileName=$(basename "$0")
+# Include common helper functions
+. "$currentScriptFolderName/_git_common.sh" --source-only
 
 # Update list of branches from remote origin
 RunGitCommandSafely "git fetch -p"
