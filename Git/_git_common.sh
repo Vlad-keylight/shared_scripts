@@ -5,7 +5,7 @@ currentScriptFileName=$(basename "$0")
 # Include common helper functions
 . "$currentScriptFolderName/../_common.sh" --source-only
 
-RunGitCommandSafely() {
+function RunGitCommandSafely() {
 	eval $1
 	local execStatus=$?
 	if (( execStatus != 0 ))
@@ -19,3 +19,44 @@ RunGitCommandSafely() {
 		LogSuccess "Command [$1] successful" 
 	fi
 }
+
+function GetBranchFullName() {
+	function getGitUserName() {
+		local gitUserName=$(git config credential.username)
+		if [ -z "$gitUserName" ]
+		then
+			echo $gitUserName
+		else
+			echo $USERNAME
+		fi
+	}
+
+	local branchName=$1
+	# Prefix the branch name with the username before creating it,
+	# if it isn't already prefixed properly
+	local gitUserName=$(getGitUserName)
+	if [[ "$branchName" != $gitUserName/* ]]
+	then
+		echo "$gitUserName/$branchName"
+	else
+		echo "$branchName"
+	fi
+}
+
+function GetExistingBranchName() {
+	local branchName="$1"
+	# Check whether the provided branch exists
+	local branches="$(git branch | sed -E 's/(^(\*?)[ \t]+)|([ \t]+$)//g')"
+	local existingBranchName=$(echo "$branches" | egrep -o "^$branchName\$")
+	if [ -n "$existingBranchName" ]; then
+		echo $existingBranchName
+	else
+		# Fallback to checking branch full name
+		local branchFullName=$(GetBranchFullName $branchName)
+		echo "$branches" | egrep -o "^$branchFullName\$"
+	fi
+}
+
+export -f RunGitCommandSafely
+export -f GetBranchFullName
+export -f GetExistingBranchName

@@ -32,12 +32,13 @@ fi
 # Check whether we have provided a branch name as a script parameter
 if [ -n "$1" ]
 then
-	if [ "$1" == "$gitInitialBranch" ]
+	targetGitInitialBranch=$(GetExistingBranchName $1)
+	if [ "$targetGitInitialBranch" == "$gitInitialBranch" ]
 	then
-		LogSuccess "Already on target branch [$1]"
+		LogSuccess "Already on target branch [$targetGitInitialBranch]"
 	else
-		RunGitCommandSafely "git checkout $1"
-		gitInitialBranch=$1
+		RunGitCommandSafely "git checkout $targetGitInitialBranch"
+		gitInitialBranch=$targetGitInitialBranch
 	fi
 fi
 
@@ -45,7 +46,7 @@ packageUpdateCommitBefore=$(latestLocalPackageUpdateCommit)
 
 mergeSourceBranchName="master"
 if [ -n "$2" ] && [ "$2" != "$gitInitialBranch" ]; then
-	mergeSourceBranchName="$2"
+	mergeSourceBranchName=$(GetExistingBranchName $2)
 fi
 
 # If we aren't already on the merge source branch then switch
