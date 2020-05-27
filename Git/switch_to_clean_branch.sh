@@ -52,7 +52,7 @@ else
 	branchName=$existingBranchName
 	LogWarning "Switching to existing branch [$branchName]"
 	RunGitCommandSafely "git checkout $branchName" $gitFilesChanged
-	if [ -n "$(git branch -a | grep \"remotes/origin/$branchName\")" ]; then
+	if [ -n "$(git branch -a | grep remotes/origin/$branchName)" ]; then
 		RunGitCommandSafely "git pull" $gitFilesChanged
 	else
 		LogWarning "Branch [$branchName] does not exist in remote origin. Skipping pull."
