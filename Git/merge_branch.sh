@@ -16,6 +16,9 @@ then
 	ScriptFailure "Unable to get the current git branch"
 fi
 
+# Update list of branches from remote origin
+RunGitCommandSafely "git fetch -p"
+
 # Stash initial changes to enable pull/merge/checkout
 gitFilesChanged=$(git status -su | grep -c '')
 if (( $gitFilesChanged == 0 ))
@@ -40,20 +43,25 @@ fi
 
 packageUpdateCommitBefore=$(latestLocalPackageUpdateCommit)
 
-# If we aren't already on master then switch
-if [[ "$gitInitialBranch" != "master" ]]
+mergeSourceBranchName="master"
+if [ -n "$2" ] && [ "$2" != "$gitInitialBranch" ]; then
+	mergeSourceBranchName="$2"
+fi
+
+# If we aren't already on the merge source branch then switch
+if [[ "$gitInitialBranch" != "$mergeSourceBranchName" ]]
 then
-	RunGitCommandSafely "git checkout master" $gitFilesChanged
+	RunGitCommandSafely "git checkout $mergeSourceBranchName" $gitFilesChanged
 fi
 
 # Update the branch (pull new changes)
 RunGitCommandSafely "git pull > /dev/null" $gitFilesChanged
 
-# If we weren't initially on master then switch back and merge
-if [[ "$gitInitialBranch" != "master" ]]
+# If we weren't initially on merge source branch then switch back and merge
+if [[ "$gitInitialBranch" != "$mergeSourceBranchName" ]]
 then
 	RunGitCommandSafely "git checkout $gitInitialBranch" $gitFilesChanged
-	RunGitCommandSafely "git merge master > /dev/null" $gitFilesChanged
+	RunGitCommandSafely "git merge $mergeSourceBranchName > /dev/null" $gitFilesChanged
 fi
 
 # Stash pop initial changes
@@ -62,7 +70,7 @@ then
 	RunGitCommandSafely "git stash pop" $gitFilesChanged
 fi
 
-LogSuccess "Successfully updated branch [$gitInitialBranch]"
+LogSuccess "Successfully updated branch [$gitInitialBranch] from [$mergeSourceBranchName]"
 
 # Run `npm install` only if there was a package update in the latest pull/merge 
 packageUpdateCommitAfter=$(latestLocalPackageUpdateCommit)
