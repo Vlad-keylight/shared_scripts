@@ -42,13 +42,18 @@ if [ -z "$existingBranchName" ]; then
 		branchName="$gitUser/$branchName"
 	fi
 
-	LogWarning "Creating new branch [$branchName]"
-	RunGitCommandSafely "git checkout -b $branchName" $gitFilesChanged
+	if [ -n "$(ConfirmAction Create new branch [$branchName])" ]; then
+		RunGitCommandSafely "git checkout -b $branchName" $gitFilesChanged
+		LogSuccess "Successfully created new branch [$branchName]"
+	else
+		LogWarning "Skipped creating new branch [$branchName]"
+	fi
 else
 	branchName=$existingBranchName
 	LogWarning "Switching to existing branch [$branchName]"
 	RunGitCommandSafely "git checkout $branchName" $gitFilesChanged
 	RunGitCommandSafely "git pull" $gitFilesChanged
+	LogSuccess "Successfully switched to existing branch [$branchName]"
 fi
 
 # Remove all non-versioned files and directories
@@ -59,5 +64,3 @@ if (( $gitFilesChanged > 0 ))
 then
 	RunGitCommandSafely "git stash pop" $gitFilesChanged
 fi
-
-LogSuccess "Successfully switched to clean branch [$branchName]"
