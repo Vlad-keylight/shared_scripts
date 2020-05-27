@@ -60,9 +60,6 @@ else
 	LogSuccess "Successfully switched to existing branch [$branchName]"
 fi
 
-# Remove all non-versioned files and directories
-# git clean -f -d
-
 # Stash pop initial changes
 if (( $gitFilesChanged > 0 ))
 then
