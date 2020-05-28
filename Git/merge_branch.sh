@@ -47,6 +47,9 @@ packageUpdateCommitBefore=$(latestLocalPackageUpdateCommit)
 mergeSourceBranchName="master"
 if [ -n "$2" ] && [ "$2" != "$gitInitialBranch" ]; then
 	mergeSourceBranchName=$(GetExistingBranchName $2)
+	if [ -z "$mergeSourceBranchName" ]; then
+		mergeSourceBranchName="$2"
+	fi
 fi
 
 # If we aren't already on the merge source branch then switch
