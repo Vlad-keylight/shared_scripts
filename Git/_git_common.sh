@@ -57,6 +57,14 @@ function GetExistingBranchName() {
 	fi
 }
 
+function BranchCountOnRemoteOrigin() {
+	local branchName="$1"
+	local existingBranchName=$(GetExistingBranchName "$branchName")
+	local remoteBranchCount=$(git branch -a | egrep -c "^\s*remotes/origin/$existingBranchName$")
+	echo "$remoteBranchCount"
+}
+
 export -f RunGitCommandSafely
 export -f GetBranchFullName
 export -f GetExistingBranchName
+export -f BranchCountOnRemoteOrigin

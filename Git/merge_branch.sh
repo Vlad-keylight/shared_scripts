@@ -40,13 +40,19 @@ if [ -n "$1" ] && [ "$1" != "$gitInitialBranch" ]; then
 fi
 
 # If we aren't already on the merge source branch then switch
+pullBranchName=$gitInitialBranch
 if [[ "$gitInitialBranch" != "$mergeSourceBranchName" ]]
 then
 	RunGitCommandSafely "git checkout $mergeSourceBranchName" $gitFilesChanged
+	pullBranchName=$mergeSourceBranchName
 fi
-
-# Update the branch (pull new changes)
-RunGitCommandSafely "git pull > /dev/null" $gitFilesChanged
+if (( "$(BranchCountOnRemoteOrigin $pullBranchName)" == 0 )); then
+	# Branch does not exist on the remote origin - we cannot perform git pull
+	LogWarning "git pull not possible for local branch [$pullBranchName]"
+else
+	# Update the branch (pull new changes)
+	RunGitCommandSafely "git pull > /dev/null" $gitFilesChanged
+fi
 
 # If we weren't initially on merge source branch then switch back and merge
 if [[ "$gitInitialBranch" != "$mergeSourceBranchName" ]]
