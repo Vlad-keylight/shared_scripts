@@ -29,26 +29,13 @@ else
 	RunGitCommandSafely "git stash --include-untracked"
 fi
 
-# Check whether we have provided a branch name as a script parameter
-if [ -n "$1" ]
-then
-	targetGitInitialBranch=$(GetExistingBranchName $1)
-	if [ "$targetGitInitialBranch" == "$gitInitialBranch" ]
-	then
-		LogSuccess "Already on target branch [$targetGitInitialBranch]"
-	else
-		RunGitCommandSafely "git checkout $targetGitInitialBranch"
-		gitInitialBranch=$targetGitInitialBranch
-	fi
-fi
-
 packageUpdateCommitBefore=$(latestLocalPackageUpdateCommit)
 
 mergeSourceBranchName="master"
-if [ -n "$2" ] && [ "$2" != "$gitInitialBranch" ]; then
-	mergeSourceBranchName=$(GetExistingBranchName $2)
+if [ -n "$1" ] && [ "$1" != "$gitInitialBranch" ]; then
+	mergeSourceBranchName=$(GetExistingBranchName $1)
 	if [ -z "$mergeSourceBranchName" ]; then
-		mergeSourceBranchName="$2"
+		mergeSourceBranchName="$1"
 	fi
 fi
 
