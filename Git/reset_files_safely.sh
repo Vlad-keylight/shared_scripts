@@ -14,8 +14,9 @@ fi
 
 diffFiles=$(git diff master --name-only)
 diffFilesCount=$(echo "$diffFiles" | grep -c '')
-if (( "$diffFilesCount" == 0 )); then
-    LogSuccess "No diff files found on branch [$gitInitialBranch]"    
+if (( "$diffFilesCount" == 0 )) || [ -z "$diffFiles" ]; then
+    LogSuccess "No diff files found on branch [$gitInitialBranch]"
+    exit 0
 fi
 
 LogWarning "Found $diffFilesCount diff files on branch [$gitInitialBranch]\n"
