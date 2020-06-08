@@ -44,17 +44,17 @@ function GetBranchFullName() {
 }
 
 function GetExistingBranchName() {
-	local branchName="$1"
-	# Check whether the provided branch exists
-	local branches="$(git branch | sed -E 's/(^(\*?)[ \t]+)|([ \t]+$)//g')"
-	local existingBranchName=$(echo "$branches" | egrep -o "^$branchName\$")
-	if [ -n "$existingBranchName" ]; then
-		echo $existingBranchName
-	else
-		# Fallback to checking branch full name
-		local branchFullName=$(GetBranchFullName $branchName)
-		echo "$branches" | egrep -o "^$branchFullName\$"
-	fi
+	local inputBranch="$1"
+	local inputBranchNames=("$inputBranch" "$(GetBranchFullName $inputBranch)")
+	local allBranches="$(git branch | sed -E 's/(^(\*?)[ \t]+)|([ \t]+$)//g')"
+	for branchName in ${inputBranchNames[@]}; do
+		# Check whether the provided branch exists
+		local existingBranchName=$(echo "$allBranches" | egrep -o "^$branchName\$")
+		if [ -n "$existingBranchName" ] && (( $(echo "$existingBranchName" | grep -c '') == 1 )); then
+			echo $existingBranchName
+			return
+		fi
+	done
 }
 
 function BranchCountOnRemoteOrigin() {
