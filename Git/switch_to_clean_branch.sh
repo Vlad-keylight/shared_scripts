@@ -43,6 +43,10 @@ else
 	RunGitCommandSafely "git checkout $branchName" $gitFilesChanged
 	if [ -n "$(git branch -a | grep remotes/origin/$branchName)" ]; then
 		RunGitCommandSafely "git pull" $gitFilesChanged
+		if [ -n "$(ConfirmAction 'Rebase to master and reset/squash other committed changes visible in the PR')" ]; then
+			RunGitCommandSafely "git rebase origin/master" $gitFilesChanged
+			RunGitCommandSafely "git push --force" $gitFilesChanged
+		fi
 	else
 		LogWarning "Branch [$branchName] does not exist in remote origin. Skipping pull."
 	fi
