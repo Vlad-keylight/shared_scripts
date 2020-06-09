@@ -51,7 +51,7 @@ if (( "$(BranchCountOnRemoteOrigin $pullBranchName)" == 0 )); then
 	LogWarning "git pull not possible for local branch [$pullBranchName]"
 else
 	# Update the branch (pull new changes)
-	RunGitCommandSafely "git pull > /dev/null" $gitFilesChanged
+	RunGitCommandSafely "git pull -q > /dev/null" $gitFilesChanged
 fi
 
 # If we weren't initially on merge source branch then switch back and merge

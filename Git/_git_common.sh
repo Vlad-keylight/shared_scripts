@@ -65,7 +65,7 @@ function BranchCountOnRemoteOrigin() {
 }
 
 function UpdateBranchesInfoFromRemote() {
-	RunGitCommandSafely "git fetch -p  > /dev/null"
+	RunGitCommandSafely "git fetch -pq > /dev/null"
 }
 
 export -f RunGitCommandSafely
