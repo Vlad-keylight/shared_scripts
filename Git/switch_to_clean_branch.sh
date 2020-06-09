@@ -11,6 +11,8 @@ then
 	ScriptFailure "Branch name is required\n$currentScriptFileName \$1:BRANCH_NAME"
 fi
 
+UpdateBranchesInfoFromRemote
+
 # Stash initial changes to enable pull/merge/checkout
 gitFilesChanged=$(git status -su | grep -c '')
 if (( $gitFilesChanged == 0 ))
@@ -20,8 +22,6 @@ else
 	LogWarning "Stashing $gitFilesChanged changed files"
 	RunGitCommandSafely "git stash --include-untracked"
 fi
-
-RunGitCommandSafely "git fetch" $gitFilesChanged
 
 # Reset all commits worked on the current branch
 RunGitCommandSafely "git reset --hard origin/master" $gitFilesChanged
@@ -43,10 +43,6 @@ else
 	RunGitCommandSafely "git checkout $branchName" $gitFilesChanged
 	if [ -n "$(git branch -a | grep remotes/origin/$branchName)" ]; then
 		RunGitCommandSafely "git pull" $gitFilesChanged
-		if [ -n "$(ConfirmAction 'Rebase to master and reset/squash other committed changes visible in the PR')" ]; then
-			RunGitCommandSafely "git rebase origin/master" $gitFilesChanged
-			RunGitCommandSafely "git push --force" $gitFilesChanged
-		fi
 	else
 		LogWarning "Branch [$branchName] does not exist in remote origin. Skipping pull."
 	fi

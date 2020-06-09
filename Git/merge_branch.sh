@@ -17,7 +17,7 @@ then
 fi
 
 # Update list of branches from remote origin
-RunGitCommandSafely "git fetch -p"
+UpdateBranchesInfoFromRemote
 
 # Stash initial changes to enable pull/merge/checkout
 gitFilesChanged=$(git status -su | grep -c '')
@@ -59,6 +59,10 @@ if [[ "$gitInitialBranch" != "$mergeSourceBranchName" ]]
 then
 	RunGitCommandSafely "git checkout $gitInitialBranch" $gitFilesChanged
 	RunGitCommandSafely "git merge $mergeSourceBranchName > /dev/null" $gitFilesChanged
+	if [ -n "$(ConfirmAction Rebase to $mergeSourceBranchName and reset/squash other committed changes visible in the PR)" ]; then
+		RunGitCommandSafely "git rebase origin/$mergeSourceBranchName" $gitFilesChanged
+		RunGitCommandSafely "git push --force" $gitFilesChanged
+	fi
 fi
 
 # Stash pop initial changes

@@ -64,7 +64,12 @@ function BranchCountOnRemoteOrigin() {
 	echo "$remoteBranchCount"
 }
 
+function UpdateBranchesInfoFromRemote() {
+	RunGitCommandSafely "git fetch -p  > /dev/null"
+}
+
 export -f RunGitCommandSafely
 export -f GetBranchFullName
 export -f GetExistingBranchName
 export -f BranchCountOnRemoteOrigin
+export -f UpdateBranchesInfoFromRemote

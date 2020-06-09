@@ -6,7 +6,7 @@ currentScriptFileName=$(basename "$0")
 . "$currentScriptFolderName/_git_common.sh" --source-only
 
 # Update list of branches from remote origin
-RunGitCommandSafely "git fetch -p"
+UpdateBranchesInfoFromRemote
 
 # List all branches & filter only the branches deleted from the remote origin
 deletedBranchRegex="((: )|(\[))gone\]"
