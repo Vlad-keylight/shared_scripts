@@ -8,7 +8,9 @@ currentScriptFileName=$(basename "$0")
 branchName=$1
 if [ -z "$branchName" ]
 then
-	ScriptFailure "Branch name is required\n$currentScriptFileName \$1:BRANCH_NAME"
+	LogWarning "Available Git branches:"
+	git branch
+	ScriptFailure "Branch name is required\n\t$currentScriptFileName \$1:BRANCH_NAME"
 fi
 
 UpdateBranchesInfoFromRemote
