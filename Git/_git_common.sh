@@ -68,6 +68,14 @@ function UpdateBranchesInfoFromRemote() {
 	RunGitCommandSafely "git fetch -pq > /dev/null"
 }
 
+function GetCurrentBranchName() {
+	currentBranchName=$(git rev-parse --abbrev-ref HEAD)
+	if [ -z "$currentBranchName" ]; then
+		ScriptFailure "Unable to get current Git branch name"
+	fi
+	echo "$currentBranchName"
+}
+
 export -f RunGitCommandSafely
 export -f GetBranchFullName
 export -f GetExistingBranchName

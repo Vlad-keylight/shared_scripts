@@ -10,11 +10,7 @@ latestLocalPackageUpdateCommit() {
 }
 
 # Get current git branch
-gitInitialBranch=$(git rev-parse --abbrev-ref HEAD)
-if [ -z "$gitInitialBranch" ]
-then
-	ScriptFailure "Unable to get the current git branch"
-fi
+gitInitialBranch=$(GetCurrentBranchName)
 
 # Update list of branches from remote origin
 UpdateBranchesInfoFromRemote
