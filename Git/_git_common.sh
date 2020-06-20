@@ -23,11 +23,10 @@ function RunGitCommandSafely() {
 function GetBranchFullName() {
 	function getGitUserName() {
 		local gitUserName=$(git config credential.username)
-		if [ -z "$gitUserName" ]
-		then
+		if [ -n "$gitUserName" ]; then
 			echo $gitUserName
 		else
-			echo $USERNAME
+			echo ${USER:-${USERNAME:-${LOGNAME}}}
 		fi
 	}
 
