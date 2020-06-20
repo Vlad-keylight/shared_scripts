@@ -5,6 +5,8 @@ currentScriptFileName=$(basename "$0")
 # Include common helper functions
 . "$currentScriptFolderName/_git_common.sh" --source-only
 
+entitySubPath=$1
+
 # Get current git branch
 gitInitialBranch=$(git rev-parse --abbrev-ref HEAD)
 if [ -z "$gitInitialBranch" ]
@@ -25,6 +27,15 @@ for diffFile in $diffFiles
 do
     count=$((count+1))
     LogInfo "File #$count @ [$diffFile]"
+    if [ -n "$entitySubPath" ] &&
+        [[ $diffFile != $entitySubPath ]] &&
+        [[ $diffFile != */$entitySubPath ]] &&
+        [[ $diffFile != $entitySubPath/* ]] &&
+        [[ $diffFile != */$entitySubPath/* ]]; then
+        LogInfo "\tnot matching path pattern [$entitySubPath]"
+        continue
+    fi
+
     fileName=$(basename "$diffFile")
     if [ -n "$(ConfirmAction Reset file \#$count [$fileName])" ]; then
         RunGitCommandSafely "git checkout origin/master -- \"$diffFile\""
