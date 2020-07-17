@@ -31,6 +31,10 @@ function GetBranchFullName() {
 	}
 
 	local branchName=$1
+	if [ -z "$branchName" ]; then
+		return
+	fi
+
 	# Prefix the branch name with the username before creating it,
 	# if it isn't already prefixed properly
 	local gitUserName=$(getGitUserName)
@@ -44,6 +48,9 @@ function GetBranchFullName() {
 
 function GetExistingBranchName() {
 	local inputBranch="$1"
+	if [ -z "$inputBranch" ]; then
+		return
+	fi
 	local inputBranchNames=("$inputBranch" "$(GetBranchFullName $inputBranch)")
 	local allBranches="$(git branch | sed -E 's/(^(\*?)[ \t]+)|([ \t]+$)//g')"
 	for branchName in ${inputBranchNames[@]}; do
