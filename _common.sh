@@ -34,6 +34,13 @@ function ConfirmAction() {
 	fi
 }
 
+function ExecuteWithConfirmation() {
+	local command=$1
+	if [ -n "$(ConfirmAction Execute:\\n$command\\n)" ]; then
+		eval $command
+	fi
+}
+
 function CopyFileSafely() {
 	local sourceFilePath="$1"
 	local destDirectory="$2"
