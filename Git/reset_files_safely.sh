@@ -17,31 +17,31 @@ fi
 diffFiles=$(git diff origin/master --name-only)
 diffFilesCount=$(echo "$diffFiles" | grep -c '')
 if (( "$diffFilesCount" == 0 )) || [ -z "$diffFiles" ]; then
-    LogSuccess "No diff files found on branch [$gitInitialBranch]"
-    exit 0
+	LogSuccess "No diff files found on branch [$gitInitialBranch]"
+	exit 0
 fi
 
 LogWarning "Found $diffFilesCount diff files on branch [$gitInitialBranch]\n"
 count=0
 for diffFile in $diffFiles
 do
-    count=$((count+1))
-    LogInfo "File #$count @ [$diffFile]"
-    if [ -n "$entitySubPath" ] &&
-        [[ $diffFile != $entitySubPath ]] &&
-        [[ $diffFile != */$entitySubPath ]] &&
-        [[ $diffFile != $entitySubPath/* ]] &&
-        [[ $diffFile != */$entitySubPath/* ]]; then
-        LogInfo "\tnot matching path pattern [$entitySubPath]"
-        continue
-    fi
+	count=$((count+1))
+	LogInfo "File #$count @ [$diffFile]"
+	if [ -n "$entitySubPath" ] &&
+		[[ $diffFile != $entitySubPath ]] &&
+		[[ $diffFile != */$entitySubPath ]] &&
+		[[ $diffFile != $entitySubPath/* ]] &&
+		[[ $diffFile != */$entitySubPath/* ]]; then
+		LogInfo "\tnot matching path pattern [$entitySubPath]"
+		continue
+	fi
 
-    fileName=$(basename "$diffFile")
-    if [ -n "$(ConfirmAction Reset file \#$count [$fileName])" ]; then
-        RunGitCommandSafely "git checkout origin/master -- \"$diffFile\""
-        LogSuccess "\tReset file [$fileName]"
-    else
-        LogInfo "\tSkipping reset of file [$fileName]"
-    fi
-    echo ""
+	fileName=$(basename "$diffFile")
+	if [ -n "$(ConfirmAction Reset file \#$count [$fileName])" ]; then
+		RunGitCommandSafely "git checkout origin/master -- \"$diffFile\" || git rm \"$diffFile\""
+		LogSuccess "\tReset file [$fileName]"
+	else
+		LogInfo "\tSkipping reset of file [$fileName]"
+	fi
+	echo ""
 done
