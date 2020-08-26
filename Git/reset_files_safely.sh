@@ -26,7 +26,7 @@ count=0
 for diffFile in $diffFiles
 do
 	count=$((count+1))
-	LogInfo "File #$count @ [$diffFile]"
+	LogInfo "File #$count/$diffFilesCount @ [$diffFile]"
 	if [ -n "$entitySubPath" ] &&
 		[[ $diffFile != $entitySubPath ]] &&
 		[[ $diffFile != */$entitySubPath ]] &&
@@ -37,7 +37,7 @@ do
 	fi
 
 	fileName=$(basename "$diffFile")
-	if [ -n "$(ConfirmAction Reset file \#$count [$fileName])" ]; then
+	if [ -n "$(ConfirmAction Reset file \#$count/$diffFilesCount [$fileName])" ]; then
 		RunGitCommandSafely "git checkout origin/master -- \"$diffFile\" || git rm \"$diffFile\""
 		LogSuccess "\tReset file [$fileName]"
 	else
