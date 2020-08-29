@@ -8,7 +8,7 @@ function LogWithFormat() {
 	echo -e "\e[${format}m[${currentTime}] ${message}\e[0m"
 }
 
-function LogInfo() { LogWithFormat 0 "$@"; }
+function LogInfo() { LogWithFormat 34 "$@"; }
 function LogSuccess() { LogWithFormat 32 "$@"; }
 function LogCheck() { LogWithFormat 93 "$@"; }
 function LogWarning() { LogWithFormat 33 "$@"; }
