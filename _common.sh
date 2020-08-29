@@ -4,7 +4,8 @@ LogCounter=0;
 function LogWithFormat() {
 	local format=$1
 	local message="${@:2}"
-	echo -e "\e[${format}m${message}\e[0m"
+	local currentTime=$(date +%H:%M:%S)
+	echo -e "\e[${format}m[${currentTime}] ${message}\e[0m"
 }
 
 function LogInfo() { LogWithFormat 0 "$@"; }
